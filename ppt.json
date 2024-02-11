@@ -1,0 +1,241 @@
+{
+	"reload": 1,
+	"title": "Delu PPT",
+	"size": [
+		1280,
+		800
+	],
+	"background": [
+		40,
+		44,
+		52
+	],
+	"maxsize": [
+		2048,
+		1280
+	],
+	"AOT": [
+		{
+			"type": "text",
+			"text": "dynamic \"fps: \"+str(round(window.clock.get_fps()))",
+			"font": "hancom gothic regular",
+			"fontsize": 16,
+			"color": [
+				255,
+				255,
+				255
+			],
+			"pos": [
+				5,
+				5
+			],
+			"moveable": 0
+		},
+		{
+			"type": "text",
+			"text": "dynamic \"time: \"+str(round(time.time()-window.start, 1))",
+			"font": "hancom gothic regular",
+			"fontsize": 16,
+			"color": [
+				255,
+				255,
+				255
+			],
+			"pos": [
+				5,
+				25
+			],
+			"moveable": 0
+		},
+		{
+			"type": "text",
+			"text": "dynamic \"rate: \"+str(self.reload_time)",
+			"font": "hancom gothic regular",
+			"fontsize": 16,
+			"color": [
+				255,
+				255,
+				255
+			],
+			"pos": [
+				5,
+				45
+			],
+			"moveable": 0
+		}
+	],
+	"pages": [
+		{
+			"id": "0",
+			"background": [
+				0,
+				0,
+				0
+			],
+			"opacity": 255,
+			"transition": 1,
+			"objects": [
+				{
+					"type": "image",
+					"path": "data/Picture2.png",
+					"size": "dynamic window.maxsize",
+					"moveable": 0
+				},
+				{
+					"type": "gradient",
+					"size": "dynamic window.maxsize",
+					"start": [
+						58,
+						97,
+						134,
+						200
+					],
+					"end": [
+						137,
+						37,
+						62,
+						200
+					],
+					"angle": 315,
+					"moveable": 0
+				},
+				{
+					"type": "text",
+					"fontsize": 200,
+					"pos": [
+						228,
+						452
+					],
+					"color": [
+						255,
+						253,
+						255
+					],
+					"font": "nanumsquareneo-ehv",
+					"align": "left",
+					"text": "MO·TI·",
+					"animation": [],
+					"style": [
+						{
+							"type": "shadow",
+							"radius": 32,
+							"opacity": 120
+						}
+					],
+					"tag": "text1"
+				},
+				{
+					"type": "text",
+					"fontsize": 200,
+					"pos": [
+						437,
+						644
+					],
+					"color": [
+						255,
+						255,
+						255
+					],
+					"font": "nanumsquareneo-ehv",
+					"align": "left",
+					"text": "VA·TION",
+					"animation": [],
+					"style": [
+						{
+							"type": "shadow",
+							"radius": 32,
+							"opacity": 120
+						}
+					],
+					"tag": "text2"
+				}
+			]
+		},
+		{
+			"id": "1",
+			"background": [
+				0,
+				0,
+				0
+			],
+			"transition": 1,
+			"objects": [
+				{
+					"type": "image",
+					"path": "data/ocean.jpg",
+					"size": "dynamic window.maxsize",
+					"moveable": 0,
+					"style": [
+					]
+				},
+				{
+					"type": "gradient",
+					"size": "dynamic window.maxsize",
+					"start": [
+						9,
+						104,
+						220,
+						200
+					],
+					"end": [
+						176,
+						106,
+						179,
+						200
+					],
+					"angle": 315,
+					"moveable": 0
+				},
+				{
+					"type": "text",
+					"fontsize": 200,
+					"pos": [
+						623,
+						449
+					],
+					"color": [
+						255,
+						253,
+						255
+					],
+					"font": "nanumsquareneo-ehv",
+					"align": "left",
+					"text": "MO·TI·",
+					"style": [
+						{
+							"type": "shadow",
+							"radius": 32,
+							"opacity": 120
+						}
+					],
+					"tag": "text1"
+				},
+				{
+					"type": "text",
+					"fontsize": 200,
+					"pos": [
+						627,
+						641
+					],
+					"color": [
+						255,
+						255,
+						255
+					],
+					"font": "nanumsquareneo-ehv",
+					"align": "left",
+					"text": "VA·TION",
+					"animation": [],
+					"style": [
+						{
+							"type": "shadow",
+							"radius": 32,
+							"opacity": 120
+						}
+					],
+					"tag": "text2"
+				}
+			]
+		}
+	]
+}
