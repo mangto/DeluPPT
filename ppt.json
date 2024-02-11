@@ -62,9 +62,91 @@
 				45
 			],
 			"moveable": 0
+		},
+		{
+			"type": "text",
+			"text": "dynamic \"index: \"+str(self.index)",
+			"font": "hancom gothic regular",
+			"fontsize": 16,
+			"color": [
+				255,
+				255,
+				255
+			],
+			"pos": [
+				5,
+				65
+			],
+			"moveable": 0
 		}
 	],
 	"pages": [
+		{
+			"background": [
+				0,
+				0,
+				0
+			]
+		},
+		{
+			"background": [
+				0,
+				0,
+				0
+			],
+			"objects": [
+				{
+					"type": "text",
+					"fontsize": 200,
+					"pos": [
+						234,
+						530
+					],
+					"color": [
+						255,
+						253,
+						255
+					],
+					"font": "nanumsquareneo-ehv",
+					"align": "left",
+					"text": "MO·TI·",
+					"animation": [],
+					"style": [
+						{
+							"type": "shadow",
+							"radius": 32,
+							"opacity": 120
+						}
+					],
+					"tag": "text1"
+				},
+				{
+					"type": "text",
+					"fontsize": 200,
+					"pos": [
+						943,
+						530
+					],
+					"color": [
+						255,
+						255,
+						255
+					],
+					"font": "nanumsquareneo-ehv",
+					"align": "left",
+					"text": "VA·TION",
+					"animation": [],
+					"style": [
+						{
+							"type": "shadow",
+							"radius": 32,
+							"opacity": 120
+						}
+					],
+					"tag": "text2"
+				}
+			]
+		},
 		{
 			"id": "0",
 			"background": [
@@ -128,8 +210,8 @@
 					"type": "text",
 					"fontsize": 200,
 					"pos": [
-						437,
-						644
+						385,
+						640
 					],
 					"color": [
 						255,
@@ -159,14 +241,14 @@
 				0
 			],
 			"transition": 1,
+			"ease": 1,
 			"objects": [
 				{
 					"type": "image",
 					"path": "data/ocean.jpg",
 					"size": "dynamic window.maxsize",
 					"moveable": 0,
-					"style": [
-					]
+					"style": []
 				},
 				{
 					"type": "gradient",
@@ -190,8 +272,8 @@
 					"type": "text",
 					"fontsize": 200,
 					"pos": [
-						623,
-						449
+						669,
+						421
 					],
 					"color": [
 						255,
@@ -214,7 +296,7 @@
 					"type": "text",
 					"fontsize": 200,
 					"pos": [
-						627,
+						568,
 						641
 					],
 					"color": [
@@ -236,6 +318,15 @@
 					"tag": "text2"
 				}
 			]
+		},
+		{
+			"id": "2",
+			"background": [
+				0,
+				0,
+				0
+			],
+			"objects": []
 		}
 	]
 }

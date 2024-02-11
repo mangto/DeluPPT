@@ -22,6 +22,7 @@ class system:
     ppt = ''
     clock = pygame.time.Clock()
     pointer = pygame.SYSTEM_CURSOR_ARROW
+    moveable = True
     
     def event(events:list=[], display:window=None):
         
@@ -41,22 +42,35 @@ class system:
                 elif (event.key == pygame.K_F5):
                     if (display == None): continue
                     
+                    i = display.index if (type(display.index) == int) else display.index[1]
                     display.load(system.ppt)
-
-            if (event.type == pygame.KEYDOWN):
-                if (event.key in [pygame.K_SPACE, pygame.K_DOWN, pygame.K_RIGHT] ):
-                    if (type(display.index) == int): display.move_page(display.index + 1)
-                    if (type(display.index) == tuple): display.move_page(display.index[1] + 1)
+                    if (i < len(display.pages)): display.move_page(i, True)
                     
-                elif (event.key in [pygame.K_UP, pygame.K_LEFT] ):
+                elif (event.key in [pygame.K_SPACE, pygame.K_DOWN, pygame.K_RIGHT, pygame.K_UP, pygame.K_LEFT]):
+                    system.moveable = True
+
+                elif (event.key == pygame.K_LALT): pygame.mouse.set_visible(False)
+                
+            if (event.type == pygame.KEYDOWN):
+                if (event.key in [pygame.K_SPACE, pygame.K_DOWN, pygame.K_RIGHT] and system.moveable):
+                    if (type(display.index) == int): display.move_page(display.index + 1)
+                    elif (type(display.index) == tuple): display.move_page(display.index[1] + 1)
+                    system.moveable = False
+                    
+                elif (event.key in [pygame.K_UP, pygame.K_LEFT] and system.moveable):
                     if (type(display.index) == int): display.move_page(display.index - 1)
-                    if (type(display.index) == tuple): display.move_page(display.index[1] - 1)
+                    elif (type(display.index) == tuple): display.move_page(display.index[1] - 1)
+                    system.moveable = False
+                
+                elif (event.key == pygame.K_LALT): pygame.mouse.set_visible(True)
+                
                 
     def run(ppt:str|dict=""):
         system.ppt = ppt
         
         display = window()
         display.load(ppt)
+        pygame.mouse.set_visible(False)
         
         hwnd = pygame.display.get_wm_info()['window']
         oldWndProc = win32gui.SetWindowLong(hwnd, win32con.GWL_WNDPROC, lambda *args: wndProc(oldWndProc, display.update, *args))

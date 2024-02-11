@@ -2,15 +2,19 @@ import time, math, random
 from deluppt.scripts.functions import *
 
 class animator:
-    def ease(x:float) -> float:
-        return (x**2)/((2*(x**2-x)+1))
+    def ease(x:float, amount=1) -> float:
+        x = min(max(0, x), 1)
+        a = amount*1.5
+        if (x <= amount/3): return 9/(6*a-2*a**2)*x**2
+        elif (x > 1-amount/3): return -9/(6*a-2*a**2)*(x-1)**2+1
+        else: return 3/(3-a)*(x-a/3)+a/(6-2*a)
     
     def calculate(time, self, window, function):
         function = function.replace("$time", str(time))
         value = eval(function)
         return value
         
-    def get_current(time, init, duration, start, end, value=linearvalue, ease:bool=False):
+    def get_current(time, init, duration, start, end, value=linearvalue, ease:bool=False, ease_amount:float=1):
         if (time < init): return 
         elif (time > init+duration): return 
         if (duration == 0): return end
@@ -27,7 +31,7 @@ class animator:
                 value = inclination * (time - init) + start
                 return value
             else:
-                value = start + (end-start)*animator.ease((time-init)/duration)
+                value = start + (end-start)*animator.ease((time-init)/duration, ease_amount)
                 return value
         
         elif (t in [list, tuple]):
@@ -35,7 +39,7 @@ class animator:
             result = []
             for s, e in zip(start, end):
                 if (type(s) != type(e)): return
-                result.append(animator.get_current(time, init, duration, s, e, value, ease))
+                result.append(animator.get_current(time, init, duration, s, e, value, ease, ease_amount))
 
             return t(result)
         

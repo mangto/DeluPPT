@@ -2,7 +2,7 @@ import pygame
 from pathlib import Path
 from os.path import isfile
 from json import load, dump
-import ctypes, time, math
+import ctypes, time, math, win32gui
 from copy import copy, deepcopy
 
 from deluppt.scripts.imageloader import imageloader
@@ -79,21 +79,27 @@ class window:
         
         self.transition_objects = []
         
+        self.activecheck = time.time()
+        self.active = True
+        
         self.data = {}
+        
+        self.drawn_objects = []
         pass
     
-    def move_page(self, index:int) -> None:
+    def move_page(self, index:int, notransition=False) -> None:
         if (type(index) != int): return
         if (not (0 <= index and index < len(self.pages))): return
         self.click = 0
         self.start = time.time()
         self.transition_start = time.time()
-        if (type(self.index) == tuple): self.index = self.index[1]
-        self.transition = self.current[self.index].get('transition', 0)
-        if (self.transition > 0): self.index = (self.index, index)
+        if (type(self.index) == tuple):
+            self.index = self.index[1]
+        self.transition = self.current[self.index].get('transition', 1) if not notransition else 0
+        if (self.transition > 0):
+            self.index = (self.index, index)
+            self.transition_objects = transition.sort_similar_objects(self.current[self.index[0]]["objects"], self.current[self.index[1]]["objects"])
         else: self.index = index
-        
-        self.transition_objects = transition.sort_similar_objects(self.current[self.index[0]]["objects"], self.current[self.index[1]]["objects"])
         
     def decode_objects(self, objects:list) -> list:
         self.window.fill(self.background)
@@ -301,7 +307,7 @@ class window:
         
         return
     
-    def render_object(self, object, opacity) -> None:
+    def render_object(self, object, opacity, aot=False) -> None:
         opacity = opacity if (opacity != None) else 255
         # animator
         animations = object.animation
@@ -344,45 +350,48 @@ class window:
                 )
         else:
             self.canvas.blit(body, self.value(object.pos))
+
+        if (not aot): self.drawn_objects.append(object)
         
+    def draw_adjoint(self) -> None:
         # border
-        if ('alt' in window.KeyboardState[0]):
+        for object in self.drawn_objects:
             try:
                 rect :pygame.Rect = object.rect
+                pygame.draw.line(self.canvas, (0, 255, 0), (0, rect.y), (self.maxsize[0], rect.y))
+                pygame.draw.line(self.canvas, (0, 255, 0), (0, rect.y+rect.size[1]-1), (self.maxsize[0], rect.y+rect.size[1]-1))
+                pygame.draw.line(self.canvas, (0, 255, 0), (rect.x, 0), (rect.x, self.maxsize[1]))
+                pygame.draw.line(self.canvas, (0, 255, 0), (rect.x+rect.size[0]-1, 0), (rect.x+rect.size[0]-1, self.maxsize[1]))
+                
+                DrawText("◀ " + str(rect.x)+"px", text.basic_font, self.canvas, (rect.x, rect.y+rect.size[1]//2), "cenright", (0, 255, 0))
+                DrawText(str(self.maxsize[0]-rect.x-rect.size[0])+"px ▶", text.basic_font, self.canvas, (rect.x+rect.size[0], rect.y+rect.size[1]//2), "cenleft", (0, 255, 0))
+                DrawText(str(rect.y)+"px", text.basic_font, self.canvas, (rect.x+rect.size[0]//2, rect.y), "cenbt", (0, 255, 0))
+                DrawText(str(self.maxsize[1]-rect.y-rect.size[1])+"px", text.basic_font, self.canvas, (rect.x+rect.size[0]//2, rect.y+rect.size[1]), "centop", (0, 255, 0))
+                DrawText("▲", text.basic_font, self.canvas, (rect.x+rect.size[0]//2, rect.y-18), "cenbt", (0, 255, 0))
+                DrawText("▼", text.basic_font, self.canvas, (rect.x+rect.size[0]//2, rect.y+rect.size[1]+18), "centop", (0, 255, 0))
+                
                 DrawBorder(self.canvas, rect, (255, 0, 0), 3)
                 
-            except:
-                pass
+            except: pass
     
     def render(self) -> None:
         if (not self.current): return
-        
+        self.drawn_objects = []
         if (type(self.index) == int):
             background = self.current[self.index].get('background', self.background)
             objects = self.current[self.index].get('objects', [])
             opacity = self.current[self.index].get('opacity', 255)
             self.canvas.fill(background)
-            
+            aot = False
             for i, object in enumerate(objects + self.aot):
-                if (i == len(objects)): opacity=255
-                self.render_object(object, opacity)
+                if (i == len(objects)): opacity=255; aot = True
+                self.render_object(object, opacity, aot)
             
-            multiplier = min(self.size[0]/self.maxsize[0], self.size[1]/self.maxsize[1])
-            if (round(multiplier, 1) == 1.0): self.window.blit(self.canvas, (0, 0)); self.csize = FullSize
-            else:
-                target_size = int(self.maxsize[0]*multiplier), int(self.maxsize[1]*multiplier)
-                pos = (self.size[0]-target_size[0])//2, (self.size[1]-target_size[1])//2
-                self.cpos = pos
-                self.csize = target_size
-                canvas = pygame.transform.smoothscale(self.canvas, target_size)
-                self.window.blit(canvas, pos)
-            
-            return
-        
         else: # while transition
             # transiton: pos, size, (text)
             self.start = time.time()
             background = self.current[self.index[1]].get('background', self.background)
+            ease = self.current[self.index[1]].get('ease', 1)
             objects = self.transition_objects
             opacity1 = self.current[self.index[0]].get('opacity', 255)
             opacity2 = self.current[self.index[1]].get('opacity', 255)
@@ -392,21 +401,21 @@ class window:
             estimated = (t-self.transition_start)/(self.transition+0.1**32) # float between 0 and 1
             a = round(opacity1 * (-1*(estimated-1)**2+1))
             b = round(opacity2 * (-1*estimated**2+1))
-            
+            aot = False
             for i, object in enumerate(list(objects.keys()) + self.aot):
                 if (type(object) == tuple):
                     obj2 = copy(object[0])
                     obj1 = copy(object[1])
                     try:
-                        s1 = animator.get_current(t-self.transition_start, 0, self.transition, object[0].size, object[1].size, self.value, True)
-                        s2 = animator.get_current(t-self.transition_start, 0, self.transition, object[0].size, object[1].size, self.value, True)
+                        s1 = animator.get_current(t-self.transition_start, 0, self.transition, object[0].size, object[1].size, self.value, True, ease)
+                        s2 = animator.get_current(t-self.transition_start, 0, self.transition, object[0].size, object[1].size, self.value, True, ease)
                         if (s1): obj1.size = s1
                         if (s2): obj2.size = s2
                     except AttributeError: pass
                     
                     try:
-                        p1 = animator.get_current(t-self.transition_start, 0, self.transition, object[0].pos, object[1].pos, self.value, True)
-                        p2 = animator.get_current(t-self.transition_start, 0, self.transition, object[0].pos, object[1].pos, self.value, True)
+                        p1 = animator.get_current(t-self.transition_start, 0, self.transition, object[0].pos, object[1].pos, self.value, True, ease)
+                        p2 = animator.get_current(t-self.transition_start, 0, self.transition, object[0].pos, object[1].pos, self.value, True, ease)
                         if (p1): obj1.pos = p1
                         if (p2): obj2.pos = p2
                     except AttributeError: pass
@@ -421,8 +430,8 @@ class window:
                         id = objects[object]
                         if (id): opacity = a
                         else: opacity = b
-                    else: opacity = 255
-                    self.render_object(object, opacity)
+                    else: opacity = 255; aot = True
+                    self.render_object(object, opacity, aot)
             
             multiplier = min(self.size[0]/self.maxsize[0], self.size[1]/self.maxsize[1])
             if (round(multiplier, 1) == 1.0): self.window.blit(self.canvas, (0, 0)); self.csize = FullSize
@@ -436,15 +445,37 @@ class window:
             
             if (time.time() - self.transition_start >= self.transition): self.index = self.index[1]
             
-            return
-    
+
+        if ('alt' in window.KeyboardState[0]):
+            # adjoint
+            
+            pygame.draw.line(self.canvas, (0, 0, 255), (0, self.maxsize[1]//2), (self.maxsize[0], self.maxsize[1]//2))
+            pygame.draw.line(self.canvas, (0, 0, 255), (self.maxsize[0]//2, 0), (self.maxsize[0]//2, self.maxsize[1]))
+            self.draw_adjoint()
+            
+        multiplier = min(self.size[0]/self.maxsize[0], self.size[1]/self.maxsize[1])
+        if (round(multiplier, 1) == 1.0): self.window.blit(self.canvas, (0, 0)); self.csize = FullSize
+        else:
+            target_size = int(self.maxsize[0]*multiplier), int(self.maxsize[1]*multiplier)
+            pos = (self.size[0]-target_size[0])//2, (self.size[1]-target_size[1])//2
+            self.cpos = pos
+            self.csize = target_size
+            canvas = pygame.transform.smoothscale(self.canvas, target_size)
+            self.window.blit(canvas, pos)
+
+    def get_active(self) -> bool:
+        if (time.time() - self.activecheck > 0.1):
+            self.active = win32gui.GetForegroundWindow() == self.hwnd
+            self.activecheck = time.time()
+        return self.active
+            
     def update(self, **kwargs) -> None:
         window.mouse = self.offset_destination(pygame.mouse.get_pos())
         self.size = self.window.get_size()
         window.MouseState = {"leftup":mouse.leftbtup(), "leftdown":mouse.leftbtdown(),
                              "middleup":mouse.middlebtup(), "middledown":mouse.middlebtdown(),
                              "rightup":mouse.rightbtup(), "rightdown":mouse.rightbtdown()}
-        if (pygame.mouse.get_focused()):
+        if (self.get_active()):
             window.KeyboardState = keyboard.get_input()
         else: window.KeyboardState = [[], [], []]
         
@@ -459,13 +490,15 @@ class window:
                     
                 if (data != self.data):
                     st = self.start
+                    i = self.index
                     self.load(self.ppt)
                     self.start = st
+                    if (i < len(self.pages)): self.inedx = i
         except: pass
         # update
         
         self.window.fill(self.background)
         self.render()
         pygame.display.update()
-        self.clock.tick(300)
+        self.clock.tick(144)
         return None

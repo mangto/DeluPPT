@@ -134,7 +134,7 @@ class transition:
         # sort
         tagged += remained1
         tagged += remained2
-        tagged = sorted(tagged, key=lambda x:transition.obj2id[x[sortby] if type(x) == tuple else transition.obj2id.get(x, len(transition.obj2id))], reverse=True)
+        tagged = sorted(tagged, key=lambda x:transition.obj2id[x[sortby]] if type(x) == tuple else transition.obj2id.get(x, len(transition.obj2id)), reverse=True)
 
         
         for objects in tagged:

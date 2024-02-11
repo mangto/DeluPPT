@@ -6,7 +6,8 @@ import pyperclip
 
 class text:
     
-    basic_font = font('arial', 16)
+    basic_font = font('hancom gothic regular', 16)
+    emoji = font('seguiemj', 16)
     
     def __init__(self, options:dict={}, **kwargs) -> None:
         

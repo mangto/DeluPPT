@@ -153,6 +153,10 @@ def align_rect(text_rect, pos, cenleft) -> pygame.Rect:
     elif(cenleft == "right"):
         text_rect.right=x
         text_rect.top=y
+    
+    elif (cenleft == "btleft"):
+        text_rect.left = x
+        text_rect.bottom = y
         
     elif(cenleft == "btright"):
         text_rect.right=x
