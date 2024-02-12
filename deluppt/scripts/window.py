@@ -13,6 +13,7 @@ from deluppt.scripts.styler import ApplyStyle
 from deluppt.scripts.keyboard import *
 from deluppt.scripts.transition import *
 from deluppt.scripts.csys import *
+from deluppt.scripts.mask import Mask
 
 pygame.init()
 
@@ -124,8 +125,13 @@ class window:
             obj.animation = object.get("animation", [])
             obj.styles = object.get("style", [])
             obj.tag = object.get("tag", '')
+            obj.opacity = object.get("opacity", 255)
             obj.uuid = uuid()
             obj.objtype = obj_type
+            obj.nof = object.get('nof', False)
+            obj.mask = object.get('mask', [])
+            obj.masklayer = Mask.render_mask(obj.rect, obj.mask)
+            obj.masked = obj.mask != []
             
             if (obj.tag):
                 if (obj.tag in tags):
@@ -280,11 +286,20 @@ class window:
                 self.movingobj = object
                 self.movingstpos = clickpos
                 self.movingobjindex = i
+                self.movingobjorgpos = object.pos
+                self.mousedelta = object.pos[0]-clickpos[0], object.pos[1]-clickpos[1]
                 return
         
         if (self.movingobj):
-            self.movingobj.pos = [self.movingobj.pos[0] + self.mouse[0]-self.movingstpos[0],
-                              self.movingobj.pos[1] + self.mouse[1]-self.movingstpos[1]]
+            if ('shift' not in self.KeyboardState[0]):
+                dx, dy = self.mouse[0]-self.movingstpos[0], self.mouse[1]-self.movingstpos[1]
+                self.movingobj.pos = [self.movingobj.pos[0] + dx, self.movingobj.pos[1] + dy]
+            else:
+                dx, dy = self.mouse[0]-self.movingobjorgpos[0] + self.mousedelta[0], self.mouse[1]-self.movingobjorgpos[1] + self.mousedelta[1]
+                
+                if (abs(dx) >= abs(dy)): self.movingobj.pos = [self.movingobjorgpos[0] + dx, self.movingobjorgpos[1]]
+                else: self.movingobj.pos = [self.movingobjorgpos[0], self.movingobjorgpos[1] + dy]
+                
             self.movingstpos = self.mouse
             self.pages[self.index]['objects'][len(objects) - self.movingobjindex-1]['pos'] = self.movingobj.pos
             
@@ -307,7 +322,7 @@ class window:
         
         return
     
-    def render_object(self, object, opacity, aot=False) -> None:
+    def render_object(self, object, opacity, aot=False, stylerhalf=False) -> None:
         opacity = opacity if (opacity != None) else 255
         # animator
         animations = object.animation
@@ -324,7 +339,7 @@ class window:
                 print(e)
         
         # style & draw
-        
+        if (int(object.opacity) != 255): opacity = object.opacity
         body :pygame.Surface = object.draw(
             surface=self.canvas,
             value=self.value,
@@ -334,8 +349,12 @@ class window:
         )
         body.set_alpha(opacity)
         
+        # mask
+        if (object.masked and not object.masklayer): object.masklayer = Mask.render_mask(object.rect, object.mask)
+        
         if (object.styles):
             styles = animations = object.styles
+            if (stylerhalf): opacity /= 2
             ApplyStyle(
                 self.canvas,
                 object,
@@ -349,8 +368,13 @@ class window:
                 }
                 )
         else:
+            if (object.masked):
+                mask :pygame.Surface = object.masklayer.copy()
+                mask.blit(body, (0, 0), None, pygame.BLEND_ADD)
+                mask.set_alpha(opacity)
+                body = mask
             self.canvas.blit(body, self.value(object.pos))
-
+        
         if (not aot): self.drawn_objects.append(object)
         
     def draw_adjoint(self) -> None:
@@ -377,6 +401,7 @@ class window:
     def render(self) -> None:
         if (not self.current): return
         self.drawn_objects = []
+        
         if (type(self.index) == int):
             background = self.current[self.index].get('background', self.background)
             objects = self.current[self.index].get('objects', [])
@@ -388,48 +413,63 @@ class window:
                 self.render_object(object, opacity, aot)
             
         else: # while transition
-            # transiton: pos, size, (text)
+            # transiton: pos, size, opacity, (text)
             self.start = time.time()
             background = self.current[self.index[1]].get('background', self.background)
-            ease = self.current[self.index[1]].get('ease', 1)
+            ease = self.current[self.index[0]].get('ease', 1)
+            ease_se = self.current[self.index[0]].get('ease_se', [1, 1])
             objects = self.transition_objects
             opacity1 = self.current[self.index[0]].get('opacity', 255)
             opacity2 = self.current[self.index[1]].get('opacity', 255)
             self.canvas.fill(background)
             
             t = self.start
-            estimated = (t-self.transition_start)/(self.transition+0.1**32) # float between 0 and 1
-            a = round(opacity1 * (-1*(estimated-1)**2+1))
-            b = round(opacity2 * (-1*estimated**2+1))
+            a = animator.get_current(t-self.transition_start, 0, self.transition, opacity1, 0, self.value, True, ease, ease_se)
+            b = animator.get_current(t-self.transition_start, 0, self.transition, 0, opacity2, self.value, True, ease, ease_se)
+            if (a == None): a = 0
+            if (b == None): b = 255
+            a, b = int(a), int(b)
             aot = False
             for i, object in enumerate(list(objects.keys()) + self.aot):
                 if (type(object) == tuple):
-                    obj2 = copy(object[0])
-                    obj1 = copy(object[1])
-                    try:
-                        s1 = animator.get_current(t-self.transition_start, 0, self.transition, object[0].size, object[1].size, self.value, True, ease)
-                        s2 = animator.get_current(t-self.transition_start, 0, self.transition, object[0].size, object[1].size, self.value, True, ease)
+                    nof = object[0].nof and object[1].nof
+                    obj1 = copy(object[0])
+                    obj2 = copy(object[1])
+                    try: # size
+                        s1 = animator.get_current(t-self.transition_start, 0, self.transition, object[0].size, object[1].size, self.value, True, ease, ease_se)
+                        s2 = animator.get_current(t-self.transition_start, 0, self.transition, object[0].size, object[1].size, self.value, True, ease, ease_se)
                         if (s1): obj1.size = s1
                         if (s2): obj2.size = s2
                     except AttributeError: pass
                     
-                    try:
-                        p1 = animator.get_current(t-self.transition_start, 0, self.transition, object[0].pos, object[1].pos, self.value, True, ease)
-                        p2 = animator.get_current(t-self.transition_start, 0, self.transition, object[0].pos, object[1].pos, self.value, True, ease)
+                    try: # pos
+                        p1 = animator.get_current(t-self.transition_start, 0, self.transition, object[0].pos, object[1].pos, self.value, True, ease, ease_se)
+                        p2 = animator.get_current(t-self.transition_start, 0, self.transition, object[0].pos, object[1].pos, self.value, True, ease, ease_se)
                         if (p1): obj1.pos = p1
                         if (p2): obj2.pos = p2
                     except AttributeError: pass
                     
-                    self.render_object(obj1, a)
-                    self.render_object(obj2, b)
+                    if (not nof):
+                        try: # opacity
+                            if (object[0].opacity != object[1].opacity):
+                                o1 = animator.get_current(t-self.transition_start, 0, self.transition, object[0].opacity, object[1].opacity, self.value, True, ease, ease_se)
+                                o2 = animator.get_current(t-self.transition_start, 0, self.transition, object[0].opacity, object[1].opacity, self.value, True, ease, ease_se)
+                                obj1.opacity = int(o1) if o1 != None else object[1].opacity
+                                obj2.opacity = int(o2) if o2 != None else object[1].opacity
+                            
+                        except AttributeError: pass
+                        self.render_object(obj1, a, stylerhalf=True)
+                        self.render_object(obj2, b, stylerhalf=True)
+                    else:
+                        self.render_object(obj1, 255)
                     
                     del obj1, obj2
                     
                 else:
                     if (object in objects):
                         id = objects[object]
-                        if (id): opacity = a
-                        else: opacity = b
+                        if (id): opacity = b
+                        else: opacity = a
                     else: opacity = 255; aot = True
                     self.render_object(object, opacity, aot)
             
@@ -443,8 +483,11 @@ class window:
                 canvas = pygame.transform.smoothscale(self.canvas, target_size)
                 self.window.blit(canvas, pos)
             
-            if (time.time() - self.transition_start >= self.transition): self.index = self.index[1]
             
+        if (type(self.index)==tuple and t - self.transition_start >= self.transition):
+            self.index = self.index[1]
+            self.transition_objects = []
+            self.drawn_objects = self.current[self.index]['objects']
 
         if ('alt' in window.KeyboardState[0]):
             # adjoint
@@ -452,7 +495,8 @@ class window:
             pygame.draw.line(self.canvas, (0, 0, 255), (0, self.maxsize[1]//2), (self.maxsize[0], self.maxsize[1]//2))
             pygame.draw.line(self.canvas, (0, 0, 255), (self.maxsize[0]//2, 0), (self.maxsize[0]//2, self.maxsize[1]))
             self.draw_adjoint()
-            
+        
+           
         multiplier = min(self.size[0]/self.maxsize[0], self.size[1]/self.maxsize[1])
         if (round(multiplier, 1) == 1.0): self.window.blit(self.canvas, (0, 0)); self.csize = FullSize
         else:
@@ -462,7 +506,8 @@ class window:
             self.csize = target_size
             canvas = pygame.transform.smoothscale(self.canvas, target_size)
             self.window.blit(canvas, pos)
-
+        
+                
     def get_active(self) -> bool:
         if (time.time() - self.activecheck > 0.1):
             self.active = win32gui.GetForegroundWindow() == self.hwnd
@@ -490,10 +535,10 @@ class window:
                     
                 if (data != self.data):
                     st = self.start
-                    i = self.index
+                    i = self.index if (type(self.index) == int) else self.index[1]
                     self.load(self.ppt)
                     self.start = st
-                    if (i < len(self.pages)): self.inedx = i
+                    if (i < len(self.pages)): self.move_page(i, True)
         except: pass
         # update
         

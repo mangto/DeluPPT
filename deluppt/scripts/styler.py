@@ -53,6 +53,25 @@ def TextShadow(object:dummy,
     
     return surface
 
+def MaskShadow(body:pygame.Surface,
+               radius:int,
+               opacity:int,
+               color:tuple[int, int, int],
+            ) -> pygame.Surface:
+    
+    if (type(radius) not in [int, float]): return
+    if (type(opacity) != int): return
+    if (type(color) not in [tuple, list]): return
+    
+    size = body.get_size()
+    surface = pygame.Surface((size[0]+radius*2, size[1]+radius*2), pygame.SRCALPHA)
+    mask = set_color(body, color)
+    surface.blit(mask, (radius, radius))
+    surface = pygame.transform.gaussian_blur(surface, radius)
+    surface.set_alpha(opacity)
+    
+    return surface
+
 def Blur(object:dummy, radius:int) -> pygame.Surface:
     if (type(radius) not in (float, int)): return
     
@@ -76,11 +95,6 @@ def ApplyStyle(window:pygame.Surface, object:dummy, styles:list, opacity:int=255
     uuid :str = object.uuid
     value = options.get("value", linearvalue)
     
-    if (uuid in Prior and str(styles) in Prior[uuid]):
-        surface = Prior[uuid][str(styles)]
-        window.blit(surface, (0, 0))
-        return
-    
     styles = [s for s in styles if s.get('type', '') in Styles]
     styles.append({'type':'original'})
     styles = sorted(styles, key=lambda x:Styles[x['type']])
@@ -90,7 +104,15 @@ def ApplyStyle(window:pygame.Surface, object:dummy, styles:list, opacity:int=255
         prior = uuid in Prior and str(type) in Prior[uuid]
         layer:pygame.Surface=None
         if (type == 'original'):
-            window.blit(object.body, value(object.pos))
+            body = object.body
+            
+            if (object.masked):
+                mask :pygame.Surface = object.masklayer.copy()
+                mask.blit(body, (0, 0), None, pygame.BLEND_ADD)
+                mask.set_alpha(opacity)
+                body = mask
+            
+            window.blit(body, value(object.pos))
         
         elif (type == "shadow"):
             radius = style.get('radius', 32)
@@ -102,16 +124,22 @@ def ApplyStyle(window:pygame.Surface, object:dummy, styles:list, opacity:int=255
             if (prior):
                 layer = Prior[uuid][str(type)]
                 layer.set_alpha(opacity_*opacity/255)
+
+                
                 window.blit(layer, (rect.x-radius+offset[0], rect.y-radius+offset[1]))
                 continue
-                
-            if (object.objtype == "text"): 
-                layer = TextShadow(object, radius, opacity_, color, options)
+            
+            if (not object.masked):
+                if (object.objtype == "text"): 
+                    layer = TextShadow(object, radius, opacity_, color, options)
+                else:
+                    layer = RectShadow(rect, radius, opacity_, color)
             else:
-                layer = RectShadow(rect, radius, opacity_, color)
+                layer = MaskShadow(object.body, radius, opacity, color)
                 
             if (not layer): continue
             layer.set_alpha(opacity_*opacity/255)
+            
             window.blit(layer, (rect.x-radius+offset[0], rect.y-radius+offset[1]))
             
         
@@ -122,11 +150,25 @@ def ApplyStyle(window:pygame.Surface, object:dummy, styles:list, opacity:int=255
             if (prior):
                 layer = Prior[uuid][str(type)]
                 layer.set_alpha(opacity)
+                
+                if (object.masked):
+                    mask :pygame.Surface = object.masklayer.copy()
+                    mask.blit(layer, (0, 0), None, pygame.BLEND_ADD)
+                    mask.set_alpha(opacity)
+                    layer = mask
+                
                 window.blit(layer, pos)
                 continue
             
             layer = Blur(object, radius)
             layer.set_alpha(opacity)
+            
+            if (object.masked):
+                mask :pygame.Surface = object.masklayer.copy()
+                mask.blit(layer, (0, 0), None, pygame.BLEND_ADD)
+                mask.set_alpha(opacity)
+                layer = mask
+            
             window.blit(layer, pos)
             
         if (uuid not in Prior): Prior[uuid] = {}
