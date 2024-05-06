@@ -1,6 +1,8 @@
 import pygame
+from os.path import isfile
 
 from deluppt.scripts.functions import *
+from deluppt.scripts.imageloader import *
 from deluppt.scripts.csys import *
 
 
@@ -38,7 +40,17 @@ class Mask:
             if (mask_type == "function"):
                 try: exec(mask.get('function', ''))
                 except Exception as e: out(e, WARNING)
-            elif (mask_type == "image"): continue
+            elif (mask_type == "image"):
+                path = mask.get('path', '')
+                if (not isfile(path)): continue
+                rect = mask.get('rect', [0, 0, 32, 32])
+                pos = rect[:2]
+                size = rect[2:]
+                image = imageloader.load(path)
+                image = pygame.transform.smoothscale(image, size)
+                image = set_color(image)
+                surface.blit(image, pos)
+                
             elif (mask_type == "text"): continue
             
             continue

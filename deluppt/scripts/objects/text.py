@@ -27,8 +27,24 @@ class text:
         self.surface :pygame.Surface = kwargs.get('surface', None)
         self.align = kwargs.get('align', 'left')
         self.FullSize = kwargs.get('FullSize', [1280, 720])
+
+        self.bold = kwargs.get('bold', 0)
+        self.italic = kwargs.get('italic', 0)
+        self.underline = kwargs.get('underline', 0)
+        self.strikethrough = kwargs.get('strikethrough', 0)
+
+        self.textalign = kwargs.get('textalign', 'left')
         
-        self.font = font(self.fontname, int(value(self.fontsize))) if self.fontname else text.basic_font
+        self.font = font(
+            self.fontname, int(value(self.fontsize)),
+            self.bold, self.italic, self.underline, self.strikethrough
+            ) if self.fontname else text.basic_font
+        
+        self.font.set_bold(self.bold)
+        self.font.set_italic(self.italic)
+        self.font.set_underline(self.underline)
+        self.font.set_strikethrough(self.strikethrough)
+
         self.hitbox = pygame.Surface(self.FullSize)
         self.lines = str(value(self.text)).splitlines()
         
@@ -55,6 +71,10 @@ class text:
 
         orgfont = self.font
         self.font = font(self.fontname, int(value(self.fontsize))) if self.fontname else text.basic_font
+        self.font.set_bold(self.bold)
+        self.font.set_italic(self.italic)
+        self.font.set_underline(self.underline)
+        self.font.set_strikethrough(self.strikethrough)
         try: value(self.font).size('c')
         except Exception as e: self.font = orgfont
 
@@ -63,15 +83,24 @@ class text:
         self.points = []
         self.objects = []
         self.lines = str(value(self.text)).splitlines()
+
+        self.maxwidth = self.font.render(max(self.lines, key=lambda x:len(x)), True, value(self.color)).get_size()[0]
+
         try:
             for line in self.lines:
-                height = 0
+                height = max(self.heights)
                 width = 0
+                linewidth = self.font.render(line, True, value(self.color)).get_size()[0]
                 for c in line:
                     length = self.font.size(c)
-                    if (length[1] > height): height = length[1]
+                    if (length[1] >= height): height = length[1]
                     
-                    self.points.append((width, sum(self.heights)+height//2))
+                    if (self.textalign == "right"):
+                        self.points.append((self.maxwidth-linewidth+width, sum(self.heights)+height//2))
+                    elif (self.textalign == "center"):
+                        self.points.append(((self.maxwidth-linewidth)//2+width, sum(self.heights)+height//2))
+                    else:
+                        self.points.append((width, sum(self.heights)+height//2))
                     width += length[0]
 
                     
@@ -89,7 +118,14 @@ class text:
             self.body = pygame.surface.Surface((max(self.widths), sum(self.heights)), pygame.SRCALPHA)
             self.rect = pygame.Rect([self.pos[0], self.pos[1], max(self.widths), sum(self.heights)])
             for i, obj in enumerate(self.objects):
-                self.body.blit(obj, (0, sum(self.heights[:i])))
+                objrect :pygame.Rect = obj.get_rect()
+                size = objrect.size
+
+                if (self.textalign == "right"):
+                    self.body.blit(obj, (max(self.widths)-size[0], sum(self.heights[:i+1])))
+                elif (self.textalign == "center"):
+                    self.body.blit(obj, ((max(self.widths)-size[0])//2, sum(self.heights[:i+1])))
+                else: self.body.blit(obj, (0, sum(self.heights[:i+1])))
                 
             pygame.draw.rect(self.hitbox, (255, 255, 255), self.rect)
         except Exception as e:
@@ -135,7 +171,7 @@ class text:
         # Draw
         if (mousestate.get('leftdown')): self.dragend, self.dragstart = -1, -1
         if (self.hover):
-            if (not self.lasthover): pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_IBEAM)
+            # if (not self.lasthover): pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_IBEAM)
             
             # drag
             if (mousestate.get('leftdown')):
@@ -146,8 +182,8 @@ class text:
                 self.dragend = sorted(self.points, key=lambda x:distance([x[0]+self.rect.topleft[0], x[1]+self.rect.topleft[1]], mouse))[0]
                 self.dragend = self.points.index(self.dragend)
             
-        else:
-            if (self.lasthover): pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
+        # else:
+            # if (self.lasthover): pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
         self.lasthover = self.hover
             
         if (self.dragstart != -1 and self.dragend != -1):
@@ -156,7 +192,7 @@ class text:
             
             for i, point in enumerate(points[:-1]):
                 if (point[1] != points[i+1][1]): continue
-                draw_rect_alpha(self.surface, (49, 154, 185, 100), [self.rect.topleft[0]+point[0], self.rect.topleft[1]+ point[1]-height//2, points[i+1][0]-point[0], height])
+                draw_rect_alpha(self.surface, (49, 154, 185, 100), [self.rect.topleft[0]+point[0], self.rect.topleft[1]+ point[1]-height//2, abs(points[i+1][0]-point[0]), height])
             
             if ('ctrl' in keystate[0] and 'c' in keystate[0]): pyperclip.copy(str(value(self.text))[min(self.dragstart, self.dragend) : max(self.dragstart, self.dragend)])
             

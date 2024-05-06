@@ -80,26 +80,32 @@ def Blur(object:dummy, radius:int) -> pygame.Surface:
     
     return body
 
+def Tint(surface:pygame.Surface, color:tuple[int, int, int]) -> pygame.Surface:
+    surface.fill(color, special_flags=pygame.BLEND_ADD)
+    return surface
+
 Styles = {
     "shadow":-1,
     "original":0,
     "blur":1,
+    "tint":1,
 }
 Prior = {
     
 }
 
 
-def ApplyStyle(window:pygame.Surface, object:dummy, styles:list, opacity:int=255, options:dict={}) -> pygame.Surface:
+def ApplyStyle(window:pygame.Surface, object:dummy, styles:list, opacity:int=255, options:dict={}, stylerhalf=False) -> pygame.Surface:
     
     uuid :str = object.uuid
     value = options.get("value", linearvalue)
     
     styles = [s for s in styles if s.get('type', '') in Styles]
-    styles.append({'type':'original'})
+    if (1 not in [Styles[s.get("type")] for s in styles]): styles.append({'type':'original'})
     styles = sorted(styles, key=lambda x:Styles[x['type']])
 
     for style in styles:
+        
         type = style.get('type', '')
         prior = uuid in Prior and str(type) in Prior[uuid]
         layer:pygame.Surface=None
@@ -112,7 +118,7 @@ def ApplyStyle(window:pygame.Surface, object:dummy, styles:list, opacity:int=255
                 mask.set_alpha(opacity)
                 body = mask
             
-            window.blit(body, value(object.pos))
+            window.blit(body, value(object.rect))
         
         elif (type == "shadow"):
             radius = style.get('radius', 32)
@@ -129,7 +135,7 @@ def ApplyStyle(window:pygame.Surface, object:dummy, styles:list, opacity:int=255
                 window.blit(layer, (rect.x-radius+offset[0], rect.y-radius+offset[1]))
                 continue
             
-            if (not object.masked):
+            if (not object.masked and object.objtype not in ["image", "sprite"]):
                 if (object.objtype == "text"): 
                     layer = TextShadow(object, radius, opacity_, color, options)
                 else:
@@ -142,6 +148,34 @@ def ApplyStyle(window:pygame.Surface, object:dummy, styles:list, opacity:int=255
             
             window.blit(layer, (rect.x-radius+offset[0], rect.y-radius+offset[1]))
             
+        elif (type == "tint"):
+            color = style.get('color', (0, 0, 0))
+            o = opacity
+            if (stylerhalf): o *= 2
+            
+            if (prior):
+                layer = Prior[uuid][str(type)]
+                layer.set_alpha(o)
+                
+                if (object.masked):
+                    mask :pygame.Surface = object.masklayer.copy()
+                    mask.blit(layer, (0, 0), None, pygame.BLEND_ADD)
+                    mask.set_alpha(o)
+                    layer = mask
+                
+                window.blit(layer, value(object.rect))
+                continue
+            
+            layer = Tint(object.body.copy(), color)
+            layer.set_alpha(o)
+            
+            if (object.masked):
+                mask :pygame.Surface = object.masklayer.copy()
+                mask.blit(layer, (0, 0), None, pygame.BLEND_ADD)
+                mask.set_alpha(o)
+                layer = mask
+            
+            window.blit(layer, value(object.rect))
         
         elif (type == "blur"):
             radius = style.get('radius', 32)
@@ -157,7 +191,7 @@ def ApplyStyle(window:pygame.Surface, object:dummy, styles:list, opacity:int=255
                     mask.set_alpha(opacity)
                     layer = mask
                 
-                window.blit(layer, pos)
+                window.blit(layer, rect)
                 continue
             
             layer = Blur(object, radius)
@@ -169,7 +203,7 @@ def ApplyStyle(window:pygame.Surface, object:dummy, styles:list, opacity:int=255
                 mask.set_alpha(opacity)
                 layer = mask
             
-            window.blit(layer, pos)
+            window.blit(layer, rect)
             
         if (uuid not in Prior): Prior[uuid] = {}
         Prior[uuid][str(type)] = layer

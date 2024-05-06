@@ -176,7 +176,7 @@ class system:
 
             def __init__(self, window, pos:tuple[int, int], size:tuple[int, int], title:str, radius:int=8, percentage:float=0.,
                          font=font("NanumSquareNeo-cBd", 18), TextColor=(0, 0, 0),
-                         ValueFont=font("NanumSquareNeo-aLt", 12), ValueColor=(0, 0, 0), round:int=8, unit:str="", ValueMultiplier:float=1., step:float|int=1,
+                         ValueFont=font("NanumSquareNeo-aLt", 12), ValueColor=(0, 0, 0), round:int=8, unit:str="", ValueMultiplier:float=1., step:int=1,
                          SliderBgColor=(132, 140, 144), SliderActiveColor=(93, 140, 217), SliderColor=(255, 255, 255),
                          SliderYOffset:int=30,
                          OnCursor=pygame.SYSTEM_CURSOR_SIZEWE, OrgCursor=pygame.SYSTEM_CURSOR_ARROW,

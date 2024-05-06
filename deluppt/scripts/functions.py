@@ -1,5 +1,6 @@
-import pygame, os, win32api
+import pygame, os, win32api, math
 from uuid import uuid4
+from pygame import gfxdraw
 
 def uuid() -> str:
     return str(uuid4().hex)
@@ -143,6 +144,21 @@ def set_color(img:pygame.Surface, color:tuple[int, int, int]=(0, 0, 0)) -> pygam
             
     return surface
 
+def drawLineWidth(surface, color, p1, p2, width):
+    d = (p2[0] - p1[0], p2[1] - p1[1]) 
+    dis = math.hypot(*d) 
+    sp = (-d[1]*width/(2*dis), d[0]*width/(2*dis))
+
+    # points
+    p1_1 = (p1[0] - sp[0], p1[1] - sp[1])
+    p1_2 = (p1[0] + sp[0], p1[1] + sp[1])
+    p2_1 = (p2[0] - sp[0], p2[1] - sp[1])
+    p2_2 = (p2[0] + sp[0], p2[1] + sp[1])
+
+    # draw the polygon
+    # pygame.gfxdraw.aapolygon(surface, (p1_1, p1_2, p2_2, p2_1), color)
+    pygame.gfxdraw.filled_polygon(surface, (p1_1, p1_2, p2_2, p2_1), color)
+
 def draw_rect_alpha(surface, color, rect):
     shape_surf = pygame.Surface(pygame.Rect(rect).size, pygame.SRCALPHA)
     pygame.draw.rect(shape_surf, color, shape_surf.get_rect())
@@ -159,24 +175,32 @@ def DrawBorder(window:pygame.Surface, rect:pygame.Rect, color:tuple, radius:int=
     pygame.draw.circle(window, color, (rect.left, rect.centery), radius)
     pygame.draw.circle(window, color, (rect.centerx, rect.bottom), radius)
     pygame.draw.circle(window, color, (rect.right, rect.centery), radius)
-    
-def font(name:str, size:int) -> pygame.font.Font:
+
+def font(name:str, size:int, bold=0, italic=0, underline=0, strikethrough=0) -> pygame.font.Font:
 
     name = name.lower()
+    font:pygame.Font
 
     try:
         if (name in localfontmap):
-            return pygame.font.Font(f".\\deluppt\\fonts\\{localfontmap[name]}", size)
+            font = pygame.font.Font(f".\\deluppt\\fonts\\{localfontmap[name]}", size)
         
-        if (name not in fontmap):
-            return pygame.font.Font(f"C:\\Windows\\Fonts\\Arial.ttf", size)
+        elif (name not in fontmap):
+            font = pygame.font.Font(f"C:\\Windows\\Fonts\\Arial.ttf", size)
         
-        return pygame.font.Font(f"C:\\Windows\\Fonts\\{fontmap[name]}", size)
+        else: font = pygame.font.Font(f"C:\\Windows\\Fonts\\{fontmap[name]}", size)
     except Exception as e:
         if "Couldn't find glyph" in e.args[0]:
             return
         if "Passed a Null pointer" in e.args[0]:
             return
+        
+    font.set_bold(bold)
+    font.set_italic(italic)
+    font.set_underline(underline)
+    font.set_strikethrough(strikethrough)
+
+    return font
 
 def align_rect(text_rect, pos, cenleft) -> pygame.Rect:
     x, y = pos

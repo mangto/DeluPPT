@@ -101,6 +101,8 @@ class transition:
         
         # reset
         transition.all_tags = []
+
+        if sortby == 1: objects1, objects2 = objects2, objects1
         
         # define
         tags1 :dict # tags : object
@@ -122,26 +124,27 @@ class transition:
         tagged, (remained1, remained2) = transition.tag_search(tags1, tags2)
         
         # add remained to notags
-        notags1 += remained1
-        notags2 += remained2
-        
+        # notags1 += remained1
+        # notags2 += remained2
+
+
         # similar search
-        couple, (remained1, remained2) =transition.similar_object_search(notags1, notags2)
+        couple, (remained3, remained4) =transition.similar_object_search(notags1, notags2)
         
         # update
         tagged += couple
         
         # sort
-        tagged += remained1
-        tagged += remained2
-        tagged = sorted(tagged, key=lambda x:transition.obj2id[x[sortby]] if type(x) == tuple else transition.obj2id.get(x, len(transition.obj2id)), reverse=True)
+        tagged += remained1 + remained3
+        tagged += remained2 + remained4
+        tagged = sorted(tagged, key=lambda x:transition.obj2id[x[sortby]] if type(x) == tuple else - len(transition.obj2id) + transition.obj2id.get(x, len(transition.obj2id)), reverse=True)
 
         
         for objects in tagged:
             if (type(objects) == tuple):
-                decoded[objects] = (0, 1)
+                decoded[objects] = (sortby==0, sortby==1)
             else:
-                if (objects in objects1): decoded[objects] = 0
-                else: decoded[objects] = 1
-        
+                if (objects in objects1): decoded[objects] = sortby==1
+                else: decoded[objects] = sortby==0
+
         return decoded

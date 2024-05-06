@@ -108,7 +108,7 @@ class gradient:
         self.canvas.blit(self.gradient_surf, (self.gpos))
         self.body = pygame.transform.smoothscale(self.canvas, value(self.size))
         
-    def angle_step(self, angle:float|int, step:int=2) -> float|int:
+    def angle_step(self, angle:float, step:int=2) -> float:
         
         return (angle//step)*step
     

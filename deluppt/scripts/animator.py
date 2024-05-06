@@ -5,11 +5,11 @@ class animator:
     def ease(x:float, amount=1, ease_se=(1, 1)) -> float:
         ease_se = tuple(ease_se)
         x = min(max(0, x), 1)
-        a = amount*1.5
+        a = amount
         
         if (ease_se == (1, 1)):
             if (x <= amount/3): return 9/(6*a-2*a**2)*x**2
-            elif (x > 1-amount/3): return -9/(6*a-2*a**2)*(x-1)**2+1
+            elif (x >= 1-amount/3): return -9/(6*a-2*a**2)*(x-1)**2+1
             else: return 3/(3-a)*(x-a/3)+a/(6-2*a)
             
         elif (ease_se == (0, 1)):

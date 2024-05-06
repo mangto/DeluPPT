@@ -30,6 +30,7 @@ class window:
     basic_icon = imageloader.load( str(deluppt_path) + '\\data\\CREAM.png' , convert=False)
     MouseState = {"leftup":0, "leftdown":0, "middleup":0, "middledown":0, "rightup":0, "rightdown":0}
     KeyboardState = [[], [], []]
+    events = []
     
     def __init__(self,
                  size:tuple=(1280, 720),
@@ -86,6 +87,8 @@ class window:
         self.data = {}
         
         self.drawn_objects = []
+        
+        self.events = []
         pass
     
     def move_page(self, index:int, notransition=False) -> None:
@@ -96,10 +99,10 @@ class window:
         self.transition_start = time.time()
         if (type(self.index) == tuple):
             self.index = self.index[1]
-        self.transition = self.current[self.index].get('transition', 1) if not notransition else 0
+        self.transition = self.current[self.index].get('transition', 2) if not notransition else 0
         if (self.transition > 0):
             self.index = (self.index, index)
-            self.transition_objects = transition.sort_similar_objects(self.current[self.index[0]]["objects"], self.current[self.index[1]]["objects"])
+            self.transition_objects = transition.sort_similar_objects(self.current[self.index[0]]["objects"], self.current[self.index[1]]["objects"], self.index[0]>self.index[1])
         else: self.index = index
         
     def decode_objects(self, objects:list) -> list:
@@ -110,18 +113,23 @@ class window:
         pygame.display.update()
         result = []
         tags = []
+        local_time=time.time()
         for object in objects:
             
             obj_type = object.get('type', '')
             
-            match obj_type:
-                case "image": method = image
-                case "text": method = text
-                case "blur": method = blur
-                case "gradient": method = gradient
-                case _: continue
+            
+            if obj_type == "image": method = image
+            elif obj_type == "text": method = text
+            elif obj_type == "blur": method = blur
+            elif obj_type == "gradient": method = gradient
+            elif obj_type == "sprite": method = sprite
+            elif obj_type == "shape": method = shape
+            elif obj_type == "physics": method = physics
+            elif obj_type == "graph": method = graph
+            else: continue
 
-            obj = method(options = object, value = self.value, FullSize=self.maxsize)
+            obj = method(options = object, value = self.value, FullSize=self.maxsize, local_time=local_time, fps=120)
             obj.animation = object.get("animation", [])
             obj.styles = object.get("style", [])
             obj.tag = object.get("tag", '')
@@ -133,12 +141,16 @@ class window:
             obj.masklayer = Mask.render_mask(obj.rect, obj.mask)
             obj.masked = obj.mask != []
             
+            if (obj.tag == ''):
+                if obj_type == "text": obj.tag = obj.text
+                if obj_type == "gradient": obj.tag == str(obj.start + obj.end)
+
             if (obj.tag):
                 if (obj.tag in tags):
                     out(f"Warning: Same Tags Exist ({obj.tag})", WARNING, True)
                     out(f'  > "{obj.tag}" Tag Would Be Applied To {obj}', OKCYAN)
                 else: tags.append(obj.tag)
-            
+
             result.append(
                 obj
                 )
@@ -149,6 +161,7 @@ class window:
                 mouse=window.mouse,
                 mousestate=window.MouseState,
                 keystate=window.KeyboardState,
+                fps=120
             ) # pre render -> move pages faster
             
             ApplyStyle(
@@ -180,6 +193,7 @@ class window:
         self.index = 0
         self.click = 0
         self.start = time.time()
+        imageloader.loaded = {}
         if( not self.init):self.window = pygame.display.set_mode(self.size, self.flags); self.init=True
         self.canvas = pygame.surface.Surface(self.maxsize, pygame.SRCALPHA)
         pygame.display.set_caption(self.caption, self.caption)
@@ -211,11 +225,11 @@ class window:
             return True
         
         # except Exception as e:
-            print("Exception Occured While Unpacking: ", e)
+        #     print("Exception Occured While Unpacking: ", e)
             
-            return False
+        #     return False
     
-    def load(self, ppt:str|dict) -> bool:        
+    def load(self, ppt:str) -> bool:        
         self.ppt = ppt
         if (type(ppt) == dict):
             return self.unpack(ppt)
@@ -242,13 +256,22 @@ class window:
         
         return
     
-    def value(self, value):
+    def value(self, value, varcheck=True):
         if (type(value) != str): return value
         
         if (value.isnumeric()): return int(value)
+
+        if (self.current and varcheck):
+            variables : dict
+            if (type(self.index) == int): variables = self.current[self.index].get('variables', {})
+            if (type(self.index) == tuple):
+                variables = self.current[self.index[0]].get('variables', {})
+                variables.update(self.current[self.index[1]].get('variables', {}))
+            for var in variables: value = value.replace(var, str(self.value(variables[var], False)))
         
         window = self
         token = value.split(' ')
+        
         if (token[0] == 'match'): return self.offset_destination(self.value(value[6:]))
         if (token[0] == 'dynamic'): return eval(value[8:])
         if (token[0] == 'image'): return imageloader.load(value[6:])
@@ -322,8 +345,10 @@ class window:
         
         return
     
-    def render_object(self, object, opacity, aot=False, stylerhalf=False) -> None:
+    def render_object(self, object, opacity, aot=False, stylerhalf=False, local_time=time.time()) -> None:
         opacity = opacity if (opacity != None) else 255
+
+
         # animator
         animations = object.animation
         t = time.time()
@@ -340,12 +365,16 @@ class window:
         
         # style & draw
         if (int(object.opacity) != 255): opacity = object.opacity
+        
         body :pygame.Surface = object.draw(
             surface=self.canvas,
             value=self.value,
             mouse=window.mouse,
             mousestate=window.MouseState,
             keystate=window.KeyboardState,
+            local_time=local_time,
+            fps=self.clock.get_fps(),
+            events=window.events
         )
         body.set_alpha(opacity)
         
@@ -365,7 +394,8 @@ class window:
                     "mouse":window.mouse,
                     "mousestate":window.MouseState,
                     "keystate":window.KeyboardState,
-                }
+                },
+                stylerhalf=stylerhalf
                 )
         else:
             if (object.masked):
@@ -373,7 +403,7 @@ class window:
                 mask.blit(body, (0, 0), None, pygame.BLEND_ADD)
                 mask.set_alpha(opacity)
                 body = mask
-            self.canvas.blit(body, self.value(object.pos))
+            self.canvas.blit(body, self.value(object.rect))
         
         if (not aot): self.drawn_objects.append(object)
         
@@ -401,16 +431,18 @@ class window:
     def render(self) -> None:
         if (not self.current): return
         self.drawn_objects = []
+        local_time = time.time()
         
         if (type(self.index) == int):
             background = self.current[self.index].get('background', self.background)
             objects = self.current[self.index].get('objects', [])
             opacity = self.current[self.index].get('opacity', 255)
+            variables = self.current[self.index].get('variables', {})
             self.canvas.fill(background)
             aot = False
             for i, object in enumerate(objects + self.aot):
                 if (i == len(objects)): opacity=255; aot = True
-                self.render_object(object, opacity, aot)
+                self.render_object(object, opacity, aot, local_time=local_time)
             
         else: # while transition
             # transiton: pos, size, opacity, (text)
@@ -418,11 +450,15 @@ class window:
             background = self.current[self.index[1]].get('background', self.background)
             ease = self.current[self.index[0]].get('ease', 1)
             ease_se = self.current[self.index[0]].get('ease_se', [1, 1])
-            objects = self.transition_objects
+            transitiontype = self.current[self.index[0]].get('transitiontype', 'morph')
+            objects :dict= self.transition_objects
             opacity1 = self.current[self.index[0]].get('opacity', 255)
             opacity2 = self.current[self.index[1]].get('opacity', 255)
+
             self.canvas.fill(background)
             
+
+
             t = self.start
             a = animator.get_current(t-self.transition_start, 0, self.transition, opacity1, 0, self.value, True, ease, ease_se)
             b = animator.get_current(t-self.transition_start, 0, self.transition, 0, opacity2, self.value, True, ease, ease_se)
@@ -430,38 +466,62 @@ class window:
             if (b == None): b = 255
             a, b = int(a), int(b)
             aot = False
+            k = self.index[0]>self.index[1]
             for i, object in enumerate(list(objects.keys()) + self.aot):
                 if (type(object) == tuple):
                     nof = object[0].nof and object[1].nof
                     obj1 = copy(object[0])
                     obj2 = copy(object[1])
                     try: # size
-                        s1 = animator.get_current(t-self.transition_start, 0, self.transition, object[0].size, object[1].size, self.value, True, ease, ease_se)
-                        s2 = animator.get_current(t-self.transition_start, 0, self.transition, object[0].size, object[1].size, self.value, True, ease, ease_se)
+                        s1 = animator.get_current(t-self.transition_start, 0, self.transition, object[k==1].size, object[k==0].size, self.value, True, ease, ease_se)
+                        s2 = animator.get_current(t-self.transition_start, 0, self.transition, object[k==1].size, object[k==0].size, self.value, True, ease, ease_se)
                         if (s1): obj1.size = s1
+                        else: obj1.size = obj2.size
                         if (s2): obj2.size = s2
                     except AttributeError: pass
                     
                     try: # pos
-                        p1 = animator.get_current(t-self.transition_start, 0, self.transition, object[0].pos, object[1].pos, self.value, True, ease, ease_se)
-                        p2 = animator.get_current(t-self.transition_start, 0, self.transition, object[0].pos, object[1].pos, self.value, True, ease, ease_se)
-                        if (p1): obj1.pos = p1
-                        if (p2): obj2.pos = p2
+                        p1 = animator.get_current(t-self.transition_start, 0, self.transition, object[k==1].pos, object[k==0].pos, self.value, True, ease, ease_se)
+                        p2 = animator.get_current(t-self.transition_start, 0, self.transition, object[k==1].pos, object[k==0].pos, self.value, True, ease, ease_se)
+                        if (p1 != None): obj1.pos = p1
+                        # else: obj1.pos = obj2.pos
+                        if (p2 != None): obj2.pos = p2
+                        # else: obj2.pos = obj1.pos
                     except AttributeError: pass
                     
                     if (not nof):
                         try: # opacity
                             if (object[0].opacity != object[1].opacity):
-                                o1 = animator.get_current(t-self.transition_start, 0, self.transition, object[0].opacity, object[1].opacity, self.value, True, ease, ease_se)
-                                o2 = animator.get_current(t-self.transition_start, 0, self.transition, object[0].opacity, object[1].opacity, self.value, True, ease, ease_se)
-                                obj1.opacity = int(o1) if o1 != None else object[1].opacity
+                                o1 = animator.get_current(t-self.transition_start, 0, self.transition, object[k==1].opacity, object[k==0].opacity, self.value, True, ease, ease_se)
+                                o2 = animator.get_current(t-self.transition_start, 0, self.transition, object[k==1].opacity, object[k==0].opacity, self.value, True, ease, ease_se)
+                                
+                                org1 = obj1.opacity
+                                org2 = obj2.opacity
+                                obj1.opacity = int(o1) if o1 != None else object[0].opacity
                                 obj2.opacity = int(o2) if o2 != None else object[1].opacity
+                                self.render_object(obj1, o1, stylerhalf=True, local_time=local_time)
+
+                                obj1.opacity = org1
+                                obj2.opacity = org2
+
+                            else:
+                                self.render_object(obj1, (a, b)[k==1], stylerhalf=True, local_time=local_time)
+                                self.render_object(obj2, (a, b)[k==0], stylerhalf=True, local_time=local_time)
+
                             
-                        except AttributeError: pass
-                        self.render_object(obj1, a, stylerhalf=True)
-                        self.render_object(obj2, b, stylerhalf=True)
+                        except AttributeError:
+                            self.render_object(obj2, b, stylerhalf=True, local_time=local_time)
+
                     else:
-                        self.render_object(obj1, 255)
+                        self.render_object(obj1, 255, local_time=local_time)
+
+                        if (type(obj1) == sprite):
+                            object[0].last_transition = obj1.last_transition
+                            object[0].index = obj1.index
+                            
+                            if (type(self.index)==tuple and t - self.transition_start >= self.transition):
+                                object[1].index = obj1.index
+                                object[1].last_transition = obj1.last_transition
                     
                     del obj1, obj2
                     
@@ -471,8 +531,9 @@ class window:
                         if (id): opacity = b
                         else: opacity = a
                     else: opacity = 255; aot = True
-                    self.render_object(object, opacity, aot)
-            
+                    self.render_object(object, opacity, aot, local_time=local_time)
+
+            # blit
             multiplier = min(self.size[0]/self.maxsize[0], self.size[1]/self.maxsize[1])
             if (round(multiplier, 1) == 1.0): self.window.blit(self.canvas, (0, 0)); self.csize = FullSize
             else:
@@ -523,6 +584,7 @@ class window:
         if (self.get_active()):
             window.KeyboardState = keyboard.get_input()
         else: window.KeyboardState = [[], [], []]
+        window.events = kwargs.get('events', [])
         
         self.move_object()
         
@@ -545,5 +607,5 @@ class window:
         self.window.fill(self.background)
         self.render()
         pygame.display.update()
-        self.clock.tick(144)
+        self.clock.tick(999)
         return None

@@ -64,6 +64,16 @@ class system:
                     system.moveable = False
                 
                 elif (event.key == pygame.K_LALT): pygame.mouse.set_visible(True)
+                
+            if (event.type == pygame.MOUSEBUTTONDOWN):
+                if (event.button == 1):
+                    if (type(display.index) == int): display.move_page(display.index + 1)
+                    elif (type(display.index) == tuple): display.move_page(display.index[1] + 1)
+                    system.moveable = False
+                elif (event.button == 3):
+                    if (type(display.index) == int): display.move_page(display.index - 1)
+                    elif (type(display.index) == tuple): display.move_page(display.index[1] - 1)
+                    system.moveable = False
             
         if ("ctrl" in window.KeyboardState[0]):
             if ('m' in window.KeyboardState[2]):
@@ -73,7 +83,7 @@ class system:
                 pid = subprocess.Popen([sys.executable, ".\\deluppt\\scripts\\color_chooser.py"],
                                     creationflags=DETACHED_PROCESS).pid
                 
-    def run(ppt:str|dict=""):
+    def run(ppt:str=""):
         system.ppt = ppt
         
         display = window()
@@ -87,4 +97,4 @@ class system:
             events = pygame.event.get()
             
             system.event(events, display)
-            display.update()
+            display.update(events=events)

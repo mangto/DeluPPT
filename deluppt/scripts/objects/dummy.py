@@ -10,6 +10,7 @@ class dummy:
         self.size = kwargs.get('size', [0, 0])
         
         self.rect = pygame.Rect(value(self.pos)+value(self.size))
+        self.body :pygame.Surface
     
     
     def draw(self, **kwargs) -> None:
@@ -17,4 +18,4 @@ class dummy:
         if (not self.surface): return
         
         value = kwargs.get('value', linearvalue)
-        return
+        return self.body
